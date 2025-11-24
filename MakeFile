@@ -1,16 +1,16 @@
 CC = gcc
 TARGET = main
-SRC = main.c
+SRC = src/main.c src/math_utils.c src/camera.c src/physics.c src/grid.c src/shaders.c src/renderer.c src/callbacks.c
 
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
     # macOS (Homebrew + frameworks)
-    CFLAGS = -I/opt/homebrew/include
+    CFLAGS = -Iinclude -I/opt/homebrew/include
     LDFLAGS = -L/opt/homebrew/lib -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 else
     # Linux (WSL/Ubuntu): link with libglfw, libGL and GLEW
-    CFLAGS =
+    CFLAGS = -Iinclude
     LDFLAGS = -lglfw -lGL -lGLEW -lm -ldl
 endif
 
