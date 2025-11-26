@@ -1,8 +1,3 @@
-/**
- * @file shaders.h
- * @brief opengl shader compilation utilities and shader sources
- */
-
 #ifndef SHADERS_H
 #define SHADERS_H
 
@@ -13,16 +8,10 @@
 #include <GL/glew.h>
 #endif
 
-/**
- * @brief compiles a shader from a source string.
- * @return shader id, or 0 on failure.
- */
+// compiles a shader from a source string
 GLuint utility_compile_shader(const char *source, GLenum type);
 
-/**
- * @brief creates a shader program by linking vertex and fragment shaders.
- * @return program id, or 0 on failure.
- */
+// creates a shader program by linking vertex and fragment shaders
 GLuint utility_create_shader_program(const char *vertex_source, const char *fragment_source);
 
 // shader source code

@@ -1,7 +1,6 @@
 /**
- * @file grid.c
- * @brief implementation of spacetime grid rendering
- */
+spacetime grid visualization that is deformed based on the gravitational forces of the bodies
+**/
 
 #include "grid.h"
 #include "physics.h"
@@ -24,12 +23,14 @@ void grid_generate_mesh(renderer_engine_t *engine)
     const float grid_spacing = 1e10f;
     const double planet_curvature_scale = 500.0; // scaling for visual effect
 
+    // allocate memory for vertices and indices
     vector3_t *vertices = malloc((grid_size + 1) * (grid_size + 1) * sizeof(vector3_t));
     GLuint *indices = malloc(grid_size * grid_size * 4 * sizeof(GLuint));
 
     int vertex_count = 0;
     int index_count = 0;
 
+    // create grid point
 	physics_lock();
     for (int z = 0; z <= grid_size; ++z)
     {
@@ -37,13 +38,19 @@ void grid_generate_mesh(renderer_engine_t *engine)
         {
             float world_x = (x - grid_size / 2) * grid_spacing;
             float world_z = (z - grid_size / 2) * grid_spacing;
-            float y = -25e10f;
+            float y = -25e10f; // flat surface
 
+            // for each celestial body
             for (int i = 0; i < NUM_CELESTIAL_BODIES; ++i)
             {
+                // get position of the body
                 vector3_t obj_pos = {celestial_bodies[i].position_and_radius.x, celestial_bodies[i].position_and_radius.y, celestial_bodies[i].position_and_radius.z};
+                
                 double mass = celestial_bodies[i].mass;
+                // calculate schwarzschild radius
                 double schwarzschild_radius = 2.0 * GRAVITATIONAL_CONSTANT * mass / (SPEED_OF_LIGHT * SPEED_OF_LIGHT);
+                
+                //  distance between grid point and body
                 double dx = world_x - obj_pos.x;
                 double dz = world_z - obj_pos.z;
                 double dist_sq = dx * dx + dz * dz;
@@ -52,9 +59,12 @@ void grid_generate_mesh(renderer_engine_t *engine)
                 if (dist_sq > schwarzschild_radius * schwarzschild_radius)
                 {
                     double dist = sqrt(dist_sq);
+
                     // visual approximation of spacetime curvature (flamm's paraboloid)
                     delta_y = sqrt(8.0 * schwarzschild_radius * (dist - schwarzschild_radius));
-                    if (i != 2) // scale down effect for non-black-hole objects
+
+                    // non-black-hole objects have a different curvature scale
+                    if (i != 2)
                     {
                         delta_y *= planet_curvature_scale;
                     }
@@ -66,17 +76,24 @@ void grid_generate_mesh(renderer_engine_t *engine)
     }
 	physics_unlock();
 
+    // for each square add four lines
     for (int z = 0; z < grid_size; ++z)
     {
         for (int x = 0; x < grid_size; ++x)
         {
+
             int i = z * (grid_size + 1) + x;
+
             indices[index_count++] = i;
+
             indices[index_count++] = i + 1;
+
             indices[index_count++] = i;
+
             indices[index_count++] = i + grid_size + 1;
         }
     }
+    
     
     if (engine->grid_vao == 0)
     {
@@ -89,9 +106,11 @@ void grid_generate_mesh(renderer_engine_t *engine)
     glBindBuffer(GL_ARRAY_BUFFER, engine->grid_vbo);
     glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(vector3_t), vertices, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, engine->grid_ebo);
+
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(GLuint), indices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vector3_t), (void *)0);
+    
     engine->grid_index_count = index_count;
     glBindVertexArray(0);
     
@@ -99,6 +118,7 @@ void grid_generate_mesh(renderer_engine_t *engine)
     free(indices);
 }
 
+// draw the grid
 void grid_render(renderer_engine_t *engine, matrix4_t view_projection_matrix)
 {
     if (!is_grid_visible) return;

@@ -1,8 +1,3 @@
-/**
- * @file renderer.h
- * @brief opengl rendering engine
- */
-
 #ifndef RENDERER_H
 #define RENDERER_H
 
@@ -18,10 +13,7 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 
-/**
- * @struct renderer_engine_t
- * @brief encapsulates all opengl and glfw objects required for rendering.
- */
+// renderer engine
 typedef struct
 {
     GLFWwindow *window;
@@ -39,35 +31,22 @@ typedef struct
 // global renderer engine
 extern renderer_engine_t renderer_engine;
 
-/**
- * @brief initializes glfw, opengl context, shaders, and all rendering objects.
- * @return true on success, false on failure.
- */
+// initializes glfw, opengl context, shaders, and all rendering objects.
 bool engine_initialize(renderer_engine_t *engine);
 
-/**
- * @brief initializes a vertex array object for drawing a fullscreen quad.
- */
+// initializes a vertex array object for drawing a fullscreen quad.
 void engine_init_fullscreen_quad(renderer_engine_t *engine);
 
-/**
- * @brief initializes the texture used as a render target for the ray tracer.
- */
+// initializes the texture used as a render target for the ray tracer.
 void engine_init_render_texture(renderer_engine_t *engine);
 
-/**
- * @brief renders the main scene using the ray tracing shader into a texture.
- */
+// renders the main scene using the ray tracing shader into a texture.
 void engine_render_raytraced_scene_to_texture(renderer_engine_t *engine, camera_t *cam);
 
-/**
- * @brief renders the previously generated texture to the screen.
- */
+// renders the previously generated texture to the screen.
 void engine_render_texture_to_screen(renderer_engine_t *engine);
 
-/**
- * @brief cleans up all allocated resources.
- */
+// cleans up all allocated resources.
 void engine_cleanup(renderer_engine_t *engine);
 
 #endif // RENDERER_H
