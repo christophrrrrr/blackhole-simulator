@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief this program simulates the gravitational interactions of three celestial bodies:
+ * @brief this program simulates the gravitational interactions of three celestial bodies (stars and the black hole):
  * two stars and a central supermassive black hole. the rendering is achieved through
  * ray tracing, which calculates the path of light rays as they are bent by the
  * black hole's gravity, according to the principles of general relativity (using
