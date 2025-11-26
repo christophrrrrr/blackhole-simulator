@@ -5,6 +5,10 @@
 
 #include "physics.h"
 #include <math.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 // simulation and physical constants
 const double SPEED_OF_LIGHT = 299792458.0;
@@ -30,45 +34,159 @@ celestial_body_t celestial_bodies[] = {
      {0, 0, 0}}                      // initial velocity
 };
 
-void simulation_update_physics(double delta_time)
+// ------------------------------
+// Internal threading primitives
+// ------------------------------
+
+#ifdef _WIN32
+static CRITICAL_SECTION physics_cs;
+static HANDLE physics_thread_handle = NULL;
+static volatile LONG physics_thread_should_run = 0;
+#endif
+
+// Next-state buffer for threaded stepping (not exposed)
+static celestial_body_t celestial_bodies_next[NUM_CELESTIAL_BODIES];
+
+static void simulation_step_buffered(const celestial_body_t *in_bodies, celestial_body_t *out_bodies, double delta_time)
 {
-    if (is_physics_paused)
-        return;
+    // copy input to output to ensure we keep unmodified fields if needed
+    for (int k = 0; k < NUM_CELESTIAL_BODIES; ++k)
+    {
+        out_bodies[k] = in_bodies[k];
+    }
 
     // n-body simulation using newton's law of universal gravitation.
     for (int i = 0; i < NUM_CELESTIAL_BODIES; ++i)
     {
+        double vx = in_bodies[i].velocity.x;
+        double vy = in_bodies[i].velocity.y;
+        double vz = in_bodies[i].velocity.z;
+
         for (int j = 0; j < NUM_CELESTIAL_BODIES; ++j)
         {
             if (i == j)
                 continue;
 
-            // calculate distance and direction between bodies
-            float dx = celestial_bodies[j].position_and_radius.x - celestial_bodies[i].position_and_radius.x;
-            float dy = celestial_bodies[j].position_and_radius.y - celestial_bodies[i].position_and_radius.y;
-            float dz = celestial_bodies[j].position_and_radius.z - celestial_bodies[i].position_and_radius.z;
+            float dx = in_bodies[j].position_and_radius.x - in_bodies[i].position_and_radius.x;
+            float dy = in_bodies[j].position_and_radius.y - in_bodies[i].position_and_radius.y;
+            float dz = in_bodies[j].position_and_radius.z - in_bodies[i].position_and_radius.z;
             float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
-            // avoid division by zero and collision
-            if (distance > (celestial_bodies[i].position_and_radius.w + celestial_bodies[j].position_and_radius.w))
+            if (distance > (in_bodies[i].position_and_radius.w + in_bodies[j].position_and_radius.w))
             {
                 vector3_t direction = {dx / distance, dy / distance, dz / distance};
-                double gravitational_force = (GRAVITATIONAL_CONSTANT * celestial_bodies[i].mass * celestial_bodies[j].mass) / (distance * distance);
-                double acceleration = gravitational_force / celestial_bodies[i].mass;
-
-                // update velocity based on acceleration
-                celestial_bodies[i].velocity.x += direction.x * acceleration * delta_time;
-                celestial_bodies[i].velocity.y += direction.y * acceleration * delta_time;
-                celestial_bodies[i].velocity.z += direction.z * acceleration * delta_time;
+                double gravitational_force = (GRAVITATIONAL_CONSTANT * in_bodies[i].mass * in_bodies[j].mass) / (distance * distance);
+                double acceleration = gravitational_force / in_bodies[i].mass;
+                vx += direction.x * acceleration * delta_time;
+                vy += direction.y * acceleration * delta_time;
+                vz += direction.z * acceleration * delta_time;
             }
         }
+
+        out_bodies[i].velocity.x = (float)vx;
+        out_bodies[i].velocity.y = (float)vy;
+        out_bodies[i].velocity.z = (float)vz;
     }
-    // update positions based on new velocities
+
     for (int i = 0; i < NUM_CELESTIAL_BODIES; i++)
     {
-        celestial_bodies[i].position_and_radius.x += celestial_bodies[i].velocity.x * delta_time;
-        celestial_bodies[i].position_and_radius.y += celestial_bodies[i].velocity.y * delta_time;
-        celestial_bodies[i].position_and_radius.z += celestial_bodies[i].velocity.z * delta_time;
+        out_bodies[i].position_and_radius.x += out_bodies[i].velocity.x * (float)delta_time;
+        out_bodies[i].position_and_radius.y += out_bodies[i].velocity.y * (float)delta_time;
+        out_bodies[i].position_and_radius.z += out_bodies[i].velocity.z * (float)delta_time;
     }
+}
+
+void simulation_update_physics(double delta_time)
+{
+    if (is_physics_paused)
+        return;
+
+    // In-place update for single-threaded mode
+    simulation_step_buffered(celestial_bodies, celestial_bodies, delta_time);
+}
+
+// ---------------
+// Thread control
+// ---------------
+
+void physics_lock(void)
+{
+#ifdef _WIN32
+    EnterCriticalSection(&physics_cs);
+#else
+    (void)0;
+#endif
+}
+
+void physics_unlock(void)
+{
+#ifdef _WIN32
+    LeaveCriticalSection(&physics_cs);
+#else
+    (void)0;
+#endif
+}
+
+bool physics_is_threaded(void)
+{
+#ifdef _WIN32
+    return physics_thread_handle != NULL;
+#else
+    return false;
+#endif
+}
+
+#ifdef _WIN32
+static DWORD WINAPI physics_thread_proc(LPVOID lpParam)
+{
+    (void)lpParam;
+    const double target_hz = 60.0;
+    const double sim_speed = 500.0;
+    const DWORD sleep_ms = (DWORD)(1000.0 / target_hz);
+
+    while (InterlockedCompareExchange(&physics_thread_should_run, 0, 0) != 0)
+    {
+        if (!is_physics_paused)
+        {
+            simulation_step_buffered(celestial_bodies, celestial_bodies_next, (1.0 / target_hz) * sim_speed);
+            physics_lock();
+            for (int i = 0; i < NUM_CELESTIAL_BODIES; ++i)
+            {
+                celestial_bodies[i] = celestial_bodies_next[i];
+            }
+            physics_unlock();
+        }
+        Sleep(sleep_ms);
+    }
+    return 0;
+}
+#endif
+
+void physics_start_thread(void)
+{
+#ifdef _WIN32
+    if (physics_thread_handle != NULL)
+        return;
+    InitializeCriticalSection(&physics_cs);
+    InterlockedExchange(&physics_thread_should_run, 1);
+    physics_thread_handle = CreateThread(NULL, 0, physics_thread_proc, NULL, 0, NULL);
+#else
+    (void)0;
+#endif
+}
+
+void physics_stop_thread(void)
+{
+#ifdef _WIN32
+    if (physics_thread_handle == NULL)
+        return;
+    InterlockedExchange(&physics_thread_should_run, 0);
+    WaitForSingleObject(physics_thread_handle, INFINITE);
+    CloseHandle(physics_thread_handle);
+    physics_thread_handle = NULL;
+    DeleteCriticalSection(&physics_cs);
+#else
+    (void)0;
+#endif
 }
 

@@ -46,6 +46,8 @@ int main()
         return EXIT_FAILURE;
     }
 
+	physics_start_thread();
+
     grid_generate_mesh(&renderer_engine);
 
     double last_time = glfwGetTime();
@@ -56,7 +58,10 @@ int main()
         double delta_time = current_time - last_time;
         last_time = current_time;
 
-        simulation_update_physics(delta_time * 500.0); // speed up simulation time
+		if (!physics_is_threaded())
+		{
+			simulation_update_physics(delta_time * 500.0); // speed up simulation time (single-thread fallback)
+		}
         if (!is_physics_paused)
         {
             grid_generate_mesh(&renderer_engine);
@@ -77,6 +82,7 @@ int main()
         glfwPollEvents();
     }
 
+	physics_stop_thread();
     engine_cleanup(&renderer_engine);
     return EXIT_SUCCESS;
 }

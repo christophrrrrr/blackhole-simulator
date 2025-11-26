@@ -30,6 +30,7 @@ void grid_generate_mesh(renderer_engine_t *engine)
     int vertex_count = 0;
     int index_count = 0;
 
+	physics_lock();
     for (int z = 0; z <= grid_size; ++z)
     {
         for (int x = 0; x <= grid_size; ++x)
@@ -63,6 +64,7 @@ void grid_generate_mesh(renderer_engine_t *engine)
             vertices[vertex_count++] = (vector3_t){world_x, y, world_z};
         }
     }
+	physics_unlock();
 
     for (int z = 0; z < grid_size; ++z)
     {

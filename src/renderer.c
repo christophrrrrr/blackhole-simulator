@@ -82,16 +82,18 @@ void engine_render_raytraced_scene_to_texture(renderer_engine_t *engine, camera_
     glUniform1f(glGetUniformLocation(engine->raytracer_shader_program, "disk_r2"), disk_outer_radius);
 
     glUniform1i(glGetUniformLocation(engine->raytracer_shader_program, "numObjects"), NUM_CELESTIAL_BODIES);
-    for (int i = 0; i < NUM_CELESTIAL_BODIES; ++i)
-    {
-        char uniform_name[64];
-        snprintf(uniform_name, sizeof(uniform_name), "objPosRadius[%d]", i);
-        glUniform4fv(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), 1, &celestial_bodies[i].position_and_radius.x);
-        snprintf(uniform_name, sizeof(uniform_name), "objColor[%d]", i);
-        glUniform4fv(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), 1, &celestial_bodies[i].color.x);
-        snprintf(uniform_name, sizeof(uniform_name), "objMass[%d]", i);
-        glUniform1f(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), celestial_bodies[i].mass);
-    }
+	physics_lock();
+	for (int i = 0; i < NUM_CELESTIAL_BODIES; ++i)
+	{
+		char uniform_name[64];
+		snprintf(uniform_name, sizeof(uniform_name), "objPosRadius[%d]", i);
+		glUniform4fv(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), 1, &celestial_bodies[i].position_and_radius.x);
+		snprintf(uniform_name, sizeof(uniform_name), "objColor[%d]", i);
+		glUniform4fv(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), 1, &celestial_bodies[i].color.x);
+		snprintf(uniform_name, sizeof(uniform_name), "objMass[%d]", i);
+		glUniform1f(glGetUniformLocation(engine->raytracer_shader_program, uniform_name), celestial_bodies[i].mass);
+	}
+	physics_unlock();
     
     glBindVertexArray(engine->fullscreen_quad_vao);
     glDrawArrays(GL_TRIANGLES, 0, 6);
