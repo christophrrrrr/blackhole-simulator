@@ -1,7 +1,6 @@
 /**
- * @file callbacks.c
- * @brief implementation of glfw callbacks
- */
+utils for visualization, callback functions for the glfw window.
+**/
 
 #include "callbacks.h"
 #include "camera.h"
@@ -17,6 +16,7 @@
 #include <GL/glew.h>
 #endif
 
+// handles mouse button press and release
 void callback_mouse_button(GLFWwindow *window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_LEFT)
@@ -46,16 +46,19 @@ void callback_mouse_button(GLFWwindow *window, int button, int action, int mods)
     camera_update_moving_state(&camera);
 }
 
+// passes cursor position to the camera_process_mouse_move function
 void callback_cursor_position(GLFWwindow *window, double xpos, double ypos)
 {
     camera_process_mouse_move(&camera, xpos, ypos);
 }
 
+// passes scroll offset to the camera_process_scroll function
 void callback_scroll(GLFWwindow *window, double xoffset, double yoffset)
 {
     camera_process_scroll(&camera, yoffset);
 }
 
+# handles keyboard events
 void callback_key(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     if (action == GLFW_PRESS)
@@ -69,10 +72,12 @@ void callback_key(GLFWwindow *window, int key, int scancode, int action, int mod
             camera_reset(&camera);
             printf("[INFO] Camera reset\n");
             break;
+        // toggles physics 
         case GLFW_KEY_P:
             is_physics_paused = !is_physics_paused;
             printf("[INFO] Physics %s\n", is_physics_paused ? "paused" : "resumed");
             break;
+        // toggles grid visibility
         case GLFW_KEY_G:
             is_grid_visible = !is_grid_visible;
             printf("[INFO] Grid %s\n", is_grid_visible ? "visible" : "hidden");
@@ -81,12 +86,15 @@ void callback_key(GLFWwindow *window, int key, int scancode, int action, int mod
     }
 }
 
+// window resize
 void callback_framebuffer_size(GLFWwindow *window, int width, int height)
 {
+    // update viewport and renderer engine dimensions
     glViewport(0, 0, width, height);
     renderer_engine.window_width = width;
     renderer_engine.window_height = height;
 
+    // update render texture dimensions
     renderer_engine.render_texture_width = width;
     renderer_engine.render_texture_height = height;
     glBindTexture(GL_TEXTURE_2D, renderer_engine.render_texture);
@@ -94,4 +102,3 @@ void callback_framebuffer_size(GLFWwindow *window, int width, int height)
                  0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-

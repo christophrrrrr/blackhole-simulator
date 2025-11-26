@@ -1,51 +1,60 @@
 /**
- * @file camera.c
- * @brief implementation of the camera system
- */
+camera system with orbital setup around a specific point, can orbit, pan and zoom
+**/
 
 #include "camera.h"
 #include "math_utils.h"
 #include <math.h>
 
+// initial camera position
 const camera_t initial_camera_state = {
-    .target = {0.0f, 0.0f, 0.0f},
-    .radius = 17.0e10f,
-    .min_radius = 1e10f,
-    .max_radius = 25.0e10f,
-    .azimuth = 0.0f,
-    .elevation = M_PI / 2.4f,
-    .orbit_speed = 0.01f,
-    .pan_speed = 0.005f,
-    .zoom_speed = 25e9f,
-    .is_dragging_orbit = false,
-    .is_dragging_pan = false,
-    .is_moving = false,
-    .last_cursor_x = 0.0,
+    .target = {0.0f, 0.0f, 0.0f}, // center of the scene
+    .radius = 17.0e10f, // distance from the center
+    .min_radius = 1e10f, // max zoom
+    .max_radius = 25.0e10f, // min zoom
+    .azimuth = 0.0f, // horizontal angle
+    .elevation = M_PI / 2.4f, // vertical angle
+    .orbit_speed = 0.01f, // speed of orbit
+    .pan_speed = 0.005f, // speed of pan
+    .zoom_speed = 25e9f, // speed of zoom
+
+    // flags for dragging and moving
+    .is_dragging_orbit = false, 
+    .is_dragging_pan = false, 
+    .is_moving = false, 
+    .last_cursor_x = 0.0, 
     .last_cursor_y = 0.0};
 
 camera_t camera;
 
+// spehrecial position -> 3D cartesian position
 vector3_t camera_get_position(const camera_t *cam)
 {
-    // clamp elevation to avoid gimbal lock at the poles
+    // avoid gimbal lock at the poles by clamping the elevation
     float clamped_elevation = utility_clamp_float(cam->elevation, 0.01f, M_PI - 0.01f);
+
     vector3_t orbital_pos = {
         cam->radius * sinf(clamped_elevation) * cosf(cam->azimuth),
         cam->radius * cosf(clamped_elevation),
         cam->radius * sinf(clamped_elevation) * sinf(cam->azimuth)};
+
     return vector3_add(cam->target, orbital_pos);
 }
 
+// is dragging or panning -> moving
 void camera_update_moving_state(camera_t *cam)
 {
     cam->is_moving = cam->is_dragging_orbit || cam->is_dragging_pan;
 }
 
+// process orbiting and panning
 void camera_process_mouse_move(camera_t *cam, double x, double y)
 {
+    // difference in cursor position since last frame
     float dx = (float)(x - cam->last_cursor_x);
     float dy = (float)(y - cam->last_cursor_y);
 
+    // orbiting
     if (cam->is_dragging_orbit)
     {
         cam->azimuth += dx * cam->orbit_speed;
@@ -53,6 +62,7 @@ void camera_process_mouse_move(camera_t *cam, double x, double y)
         cam->elevation = utility_clamp_float(cam->elevation, 0.01f, M_PI - 0.01f);
     }
 
+    // panning
     if (cam->is_dragging_pan)
     {
         vector3_t pos = camera_get_position(cam);
@@ -69,17 +79,23 @@ void camera_process_mouse_move(camera_t *cam, double x, double y)
         cam->target = vector3_add(cam->target, pan_offset_y);
     }
 
+
     cam->last_cursor_x = x;
     cam->last_cursor_y = y;
+
+    // update moving state
     camera_update_moving_state(cam);
 }
+
 
 void camera_process_scroll(camera_t *cam, double y_offset)
 {
     cam->radius -= (float)(y_offset * cam->zoom_speed);
     cam->radius = utility_clamp_float(cam->radius, cam->min_radius, cam->max_radius);
+    
     camera_update_moving_state(cam);
 }
+
 
 void camera_reset(camera_t *cam)
 {

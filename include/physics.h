@@ -1,8 +1,3 @@
-/**
- * @file physics.h
- * @brief physics simulation for celestial bodies
- */
-
 #ifndef PHYSICS_H
 #define PHYSICS_H
 
@@ -18,10 +13,7 @@ extern const double RAY_ESCAPE_RADIUS;
 extern const int NUM_CELESTIAL_BODIES;
 extern bool is_physics_paused;
 
-/**
- * @struct celestial_body_t
- * @brief represents a celestial body in the simulation.
- */
+// celestial body
 typedef struct
 {
     vector4_t position_and_radius; // .xyz for position, .w for radius
@@ -33,11 +25,7 @@ typedef struct
 // global celestial bodies array
 extern celestial_body_t celestial_bodies[];
 
-/**
- * @brief updates the positions and velocities of all celestial bodies based on
- * gravitational forces.
- * @param delta_time the time elapsed since the last update.
- */
+
 void simulation_update_physics(double delta_time);
 
 #endif // PHYSICS_H
