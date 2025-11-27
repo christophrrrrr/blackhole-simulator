@@ -5,10 +5,9 @@
 
 #include "physics.h"
 #include <math.h>
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
+#include <pthread.h>
+#include <time.h>
+#include <stdatomic.h>
 
 // simulation and physical constants
 const double SPEED_OF_LIGHT = 299792458.0;
@@ -38,11 +37,9 @@ celestial_body_t celestial_bodies[] = {
 // Internal threading primitives
 // ------------------------------
 
-#ifdef _WIN32
-static CRITICAL_SECTION physics_cs;
-static HANDLE physics_thread_handle = NULL;
-static volatile LONG physics_thread_should_run = 0;
-#endif
+static pthread_mutex_t physics_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t physics_thread_handle = 0;
+static atomic_bool physics_thread_should_run = false;
 
 // Next-state buffer for threaded stepping (not exposed)
 static celestial_body_t celestial_bodies_next[NUM_CELESTIAL_BODIES];
@@ -111,40 +108,27 @@ void simulation_update_physics(double delta_time)
 
 void physics_lock(void)
 {
-#ifdef _WIN32
-    EnterCriticalSection(&physics_cs);
-#else
-    (void)0;
-#endif
+    pthread_mutex_lock(&physics_mutex);
 }
 
 void physics_unlock(void)
 {
-#ifdef _WIN32
-    LeaveCriticalSection(&physics_cs);
-#else
-    (void)0;
-#endif
+    pthread_mutex_unlock(&physics_mutex);
 }
 
 bool physics_is_threaded(void)
 {
-#ifdef _WIN32
-    return physics_thread_handle != NULL;
-#else
-    return false;
-#endif
+    return physics_thread_handle != 0;
 }
 
-#ifdef _WIN32
-static DWORD WINAPI physics_thread_proc(LPVOID lpParam)
+static void* physics_thread_proc(void* arg)
 {
-    (void)lpParam;
+    (void)arg;
     const double target_hz = 60.0;
     const double sim_speed = 500.0;
-    const DWORD sleep_ms = (DWORD)(1000.0 / target_hz);
+    const long sleep_ns = (long)((1.0 / target_hz) * 1e9);
 
-    while (InterlockedCompareExchange(&physics_thread_should_run, 0, 0) != 0)
+    while (atomic_load(&physics_thread_should_run))
     {
         if (!is_physics_paused)
         {
@@ -156,37 +140,34 @@ static DWORD WINAPI physics_thread_proc(LPVOID lpParam)
             }
             physics_unlock();
         }
-        Sleep(sleep_ms);
+        
+        // cross-platform sleep using nanosleep
+        struct timespec req = {0, sleep_ns};
+        nanosleep(&req, NULL);
     }
-    return 0;
+    return NULL;
 }
-#endif
 
 void physics_start_thread(void)
 {
-#ifdef _WIN32
-    if (physics_thread_handle != NULL)
+    if (physics_thread_handle != 0)
         return;
-    InitializeCriticalSection(&physics_cs);
-    InterlockedExchange(&physics_thread_should_run, 1);
-    physics_thread_handle = CreateThread(NULL, 0, physics_thread_proc, NULL, 0, NULL);
-#else
-    (void)0;
-#endif
+    
+    atomic_store(&physics_thread_should_run, true);
+    if (pthread_create(&physics_thread_handle, NULL, physics_thread_proc, NULL) != 0)
+    {
+        atomic_store(&physics_thread_should_run, false);
+        physics_thread_handle = 0;
+    }
 }
 
 void physics_stop_thread(void)
 {
-#ifdef _WIN32
-    if (physics_thread_handle == NULL)
+    if (physics_thread_handle == 0)
         return;
-    InterlockedExchange(&physics_thread_should_run, 0);
-    WaitForSingleObject(physics_thread_handle, INFINITE);
-    CloseHandle(physics_thread_handle);
-    physics_thread_handle = NULL;
-    DeleteCriticalSection(&physics_cs);
-#else
-    (void)0;
-#endif
+    
+    atomic_store(&physics_thread_should_run, false);
+    pthread_join(physics_thread_handle, NULL);
+    physics_thread_handle = 0;
 }
 

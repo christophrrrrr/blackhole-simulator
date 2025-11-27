@@ -34,9 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/**
- * @brief main entry point of the application.
- */
 int main()
 {
     camera_reset(&camera);
@@ -47,8 +44,11 @@ int main()
     }
 
 	physics_start_thread();
-
-    grid_generate_mesh(&renderer_engine);
+	
+	// initialize and start grid generation
+	grid_init_buffers();
+	grid_start_thread();
+	grid_update_mesh(&renderer_engine);
 
     double last_time = glfwGetTime();
 
@@ -62,10 +62,16 @@ int main()
 		{
 			simulation_update_physics(delta_time * 500.0); // speed up simulation time (single-thread fallback)
 		}
-        if (!is_physics_paused)
-        {
-            grid_generate_mesh(&renderer_engine);
-        }
+		
+		// update grid mesh from background thread, or generate synchronously if threading not available
+		if (grid_is_threaded())
+		{
+			grid_update_mesh(&renderer_engine);
+		}
+		else if (!is_physics_paused)
+		{
+			grid_generate_mesh(&renderer_engine);
+		}
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -83,6 +89,8 @@ int main()
     }
 
 	physics_stop_thread();
+	grid_stop_thread();
+	grid_cleanup_buffers();
     engine_cleanup(&renderer_engine);
     return EXIT_SUCCESS;
 }

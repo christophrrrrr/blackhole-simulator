@@ -7,11 +7,11 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
     # macOS (Homebrew + frameworks)
     CFLAGS = -Iinclude -I/opt/homebrew/include
-    LDFLAGS = -L/opt/homebrew/lib -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+    LDFLAGS = -L/opt/homebrew/lib -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo -lpthread
 else
     # Linux (WSL/Ubuntu): link with libglfw, libGL and GLEW
     CFLAGS = -Iinclude
-    LDFLAGS = -lglfw -lGL -lGLEW -lm -ldl
+    LDFLAGS = -lglfw -lGL -lGLEW -lm -ldl -lpthread
 endif
 
 all: $(TARGET)

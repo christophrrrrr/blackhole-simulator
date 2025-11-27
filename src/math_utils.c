@@ -1,7 +1,6 @@
 /**
- * @file math_utils.c
- * @brief implementation of vector and matrix math utilities
- */
+vector and matrix math utilities
+**/
 
 #include "math_utils.h"
 #include <math.h>
